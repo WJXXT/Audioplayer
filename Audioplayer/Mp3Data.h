@@ -10,13 +10,14 @@
 
 @interface Mp3Data : NSObject
 @property (nonatomic,copy)NSString *mp3Url;
-@property (nonatomic,copy)NSNumber *id;
+@property (nonatomic,copy)NSString *ID;
 @property (nonatomic,copy)NSString *name;
 @property (nonatomic,copy)NSString *picUrl;
 @property (nonatomic,copy)NSString *blurPicUrl;
 @property (nonatomic,copy)NSString *album;
 @property (nonatomic,copy)NSString *singer;
-@property (nonatomic,copy)NSNumber *duration;
+@property (nonatomic,copy)NSString *duration;
 @property (nonatomic,copy)NSString *artists_name;
-@property (nonatomic,copy)NSString *lyric;
+//@property (nonatomic,retain)NSMutableArray *lyrics;
+@property (nonatomic,retain)NSArray *lyrics;
 @end

@@ -9,12 +9,16 @@
 #import "Playmp3Controller.h"
 #import <AVFoundation/AVFoundation.h>
 #import "UIImageView+WebCache.h"
-@interface Playmp3Controller ()<NSURLConnectionDataDelegate>
+@interface Playmp3Controller ()<UITableViewDataSource,UITableViewDelegate>
 @property (nonatomic,retain)AVAudioPlayer *audioPlayer;
 @property (nonatomic,retain)AVPlayerItem *playerItem;
 @property (nonatomic,retain)AVPlayer *mp3Player;
 @property (nonatomic,retain)UISlider *slider;
 @property (nonatomic,retain)NSMutableData *mp3data;
+@property (nonatomic,retain)NSTimer *timer;
+@property (nonatomic,retain)UIScrollView *scrollView;
+@property (nonatomic,retain)UITableView *tableView;
+@property (nonatomic,assign)NSInteger currentRow;
 @end
 
 @implementation Playmp3Controller
@@ -22,30 +26,14 @@
     [super viewWillAppear:animated];
     
 }
+//-(NSTimer *)timer{
+//    if(!_timer){
+//
+//    }
+//    return _timer;
+//}
 - (void)viewDidLoad {
     [super viewDidLoad];
-//    UInt32 sessionCategory = kAudioSessionCategory_MediaPlayback;
-//    
-//    AudioSessionSetProperty(kAudioSessionProperty_AudioCategory,
-//                            
-//                            sizeof(sessionCategory),
-//                            
-//                            &sessionCategory);
-//    
-//    
-//    UInt32 audioRouteOverride = kAudioSessionOverrideAudioRoute_Speaker;
-//    
-//    AudioSessionSetProperty (kAudioSessionProperty_OverrideAudioRoute,
-//                             
-//                             sizeof (audioRouteOverride),
-//                             
-//                             &audioRouteOverride);
-//    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
-//    
-//    //默认情况下扬声器播放
-//    
-//    [audioSession setCategory:AVAudioSessionCategoryPlayback error:nil];
-    // Do any additional setup after loading the view.
     self.view.backgroundColor =[UIColor whiteColor];
     self.navigationItem.title = _data.name;
     self.navigationItem.leftBarButtonItem =[[[UIBarButtonItem alloc]initWithTitle:@"返回" style:UIBarButtonItemStyleDone target:self action:@selector(back)]autorelease];
@@ -55,32 +43,69 @@
     self.playerItem = [AVPlayerItem playerItemWithURL:videoUrl];
     [self.playerItem addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionNew context:nil];
     self.mp3Player = [AVPlayer playerWithPlayerItem:self.playerItem];
-
+        [self.tableView reloadData];
 //[self. mp3Player setAllowsExternalPlayback:YES];
 }
 -(void)back{
     [self.navigationController dismissViewControllerAnimated:YES completion:nil];
 }
 -(void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context{
-    
     if ([keyPath isEqualToString:@"status"]) {
-        NSLog(@"%@",change);
         if (AVPlayerItemStatusReadyToPlay == self.mp3Player.currentItem.status)
         {
             [self.mp3Player play];
-//            NSLog(@"%f", self.mp3Player.currentTime);
-
+            _timer =[NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(uptimer) userInfo:nil repeats:true];
+            _currentRow = 0;
+            _slider.maximumValue = self.playerItem.duration.value/self.playerItem.duration.timescale;
+//            NSLog(@"%f",_slider.maximumValue);
         }
     }
+    
 }
 
-
+-(void)uptimer{
+    float time =self.mp3Player.currentTime.value/self.mp3Player.currentTime.timescale;
+//    NSLog(@"%f",time);
+    _slider.value =time;
+    _currentRow=time;
+    NSLog(@"%ld",_currentRow);
+    [self.tableView selectRowAtIndexPath:[NSIndexPath indexPathForRow:_currentRow inSection:0]
+     
+                                animated:YES
+     
+                          scrollPosition:UITableViewScrollPositionMiddle];
+}
 
 -(void)layoutView{
+    _scrollView = [[[UIScrollView alloc]initWithFrame:CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height/3*2+64)]autorelease];
+    _scrollView.contentSize = CGSizeMake(self.view.frame.size.width*2, self.view.frame.size.height/3*2-64);
+    _scrollView.pagingEnabled = YES;
+        _scrollView.showsHorizontalScrollIndicator = NO;
+        _scrollView.showsVerticalScrollIndicator = NO;
+     _scrollView.bounces = NO;
+    [self.view addSubview:_scrollView];
+    [self layoutScrollViewpic];
+    [self layoutScrollViewric];
+    _slider =[[UISlider alloc]initWithFrame:CGRectMake(0, self.view.frame.size.height/3*2+74, self.view.frame.size.width, 30)];
+    _slider.minimumValue = 0;
+    [_slider addTarget:self action:@selector(upslider) forControlEvents:UIControlEventValueChanged];
+    [self.view addSubview:_slider];
+    
+}
+-(void)upslider{
+    int timescale =self.mp3Player.currentTime.timescale;
+    int value = _slider.value*timescale;
+    CMTime currentTime =CMTimeMake(value, timescale);
+    [self.playerItem seekToTime:currentTime];
+    
+//    [self.tableView reloadData];
+    
+}
+
+-(void)layoutScrollViewpic{
     //添加背景
-    UIImageView *picback=[[[UIImageView alloc]initWithFrame:CGRectMake(0, 64, self.view.frame.size.width, self.view.frame.size.height/3*2)]autorelease];;
+    UIImageView *picback=[[[UIImageView alloc]initWithFrame:self.scrollView.bounds]autorelease];;
     [picback sd_setImageWithURL:[NSURL URLWithString:_data.blurPicUrl]];
-        [self.view addSubview:picback];
     //添加旋转图片
     UIImageView *imageview = [[[UIImageView alloc]initWithFrame:CGRectMake(0, 0, 300, 300)]autorelease];
     imageview.center =CGPointMake(picback.bounds.size.width/2, picback.bounds.size.height/2);
@@ -94,12 +119,54 @@
     picanimation.toValue = @(M_PI*100);
     picanimation.duration = 5000;
     [imageview.layer addAnimation:picanimation forKey:nil];
+    [_scrollView addSubview:picback];
+}
+-(void)layoutScrollViewric{
+    _tableView =[[[UITableView alloc]initWithFrame:CGRectMake(self.scrollView.frame.size.width, 0, self.scrollView.frame.size.width, self.scrollView.frame.size.height)]autorelease];
+    _tableView.dataSource =self;
+    _tableView.delegate =self;
+    [_scrollView addSubview:_tableView];
+
+//    NSLog(@"%@",_data.lyrics);
+}
+
+-(NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    return 1;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+        return _data.lyrics.count+5;
+}
+
+-(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    //设置 重用标识符
+//    static NSString *identifier = @"ID";
     
-    _slider =[[UISlider alloc]initWithFrame:CGRectMake(0, self.view.frame.size.height/3*2+74, self.view.frame.size.width, 30)];
-    _slider.minimumValue = 0;
-    _slider.maximumValue = 500;
-    [self.view addSubview:_slider];
+    //先到重用队列去取 cell
+//    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:identifier];
     
+    //判定
+//    if(cell == nil){
+        //没有获取 就创建cell
+      UITableViewCell*  cell =[[UITableViewCell alloc]initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+//    }
+//    NSLog(@"--%ld",indexPath.row);
+    if (indexPath.row>4) {
+//        NSString *lyric = [_data.lyrics[indexPath.row] valueForKey:@"lyric"];
+        cell.textLabel.text =_data.lyrics[indexPath.row];
+    }
+
+    if (indexPath.row ==5) {
+        cell.textLabel.textColor = [UIColor redColor];
+    }else{
+        cell.textLabel.textColor = [UIColor blackColor];
+    }
+    return cell;
+}
+
+- (void)didReceiveMemoryWarning {
+    [super didReceiveMemoryWarning];
+    // Dispose of any resources that can be recreated.
 }
 //-(void)request{
 //    //    1.创建URL对象
@@ -124,7 +191,7 @@
 ////接受数据
 //-(void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data{
 ////    if (_mp3data ==nil) {
-////        
+////
 ////    }
 //    //拼接数据
 //    [_mp3data appendData:data];
@@ -145,12 +212,6 @@
 ////    NSLog(@"%@",newDic);
 //
 //}
-
-- (void)didReceiveMemoryWarning {
-    [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
-}
-
 /*
 #pragma mark - Navigation
 
